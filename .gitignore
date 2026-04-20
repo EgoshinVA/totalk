@@ -1,0 +1,112 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Binary output
+/bin
+/dist
+/build
+
+# Dependency directories
+/vendor
+/node_modules
+
+# Go workspace file
+go.work
+go.work.sum
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+log/
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Testing coverage
+*.cover
+*.coverprofile
+coverage.html
+coverage.out
+coverage.txt
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Dependency management
+Gopkg.lock
+Gopkg.toml
+
+# Output of the go coverage tool
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
+
+# Profiling data
+*.pprof
+cpu.out
+mem.out
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# TLS keys and certificates
+*.pem
+*.crt
+*.key
+*.p12
+
+# Application specific
+/storage
+/uploads
+/downloads
+/cache
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Makefile artifacts
+*.d
+
+# Go module files
+go.sum
+go.mod
+# But keep go.mod and go.sum in repository usually!
+# Uncomment if you want to ignore them:
+# go.mod
+# go.sum
