@@ -4,34 +4,43 @@ import (
 	"context"
 	"net/http"
 	"time"
-	"totalk/internal/auth"
+
+	"totalk/pkg/respond"
 )
 
-func RateLimiter(store auth.LimitStore, limit int, window time.Duration) func(http.Handler) http.Handler {
+type rateLimitStore interface {
+	Allow(ctx context.Context, key string, limit int, window time.Duration) (bool, error)
+}
+
+// RateLimiter ограничивает количество запросов по IP.
+// limit — максимум запросов за window.
+func RateLimiter(store rateLimitStore, limit int, window time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// В качестве ключа берем IP (в реале можно ID юзера)
-			key := r.RemoteAddr
+			ip := realIP(r)
 
-			// Создаем контекст с таймаутом для запроса в Redis
-			ctx, cancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
-			defer cancel()
-
-			count, err := store.Increment(ctx, key, window)
+			ok, err := store.Allow(r.Context(), ip, limit, window)
 			if err != nil {
-				// Если Redis упал, в Highload обычно "пропускают" запрос (fail-open),
-				// чтобы не класть весь сервис из-за кэша.
+				// Redis недоступен — не блокируем трафик, просто пропускаем
 				next.ServeHTTP(w, r)
 				return
 			}
-
-			if count > limit {
-				w.WriteHeader(http.StatusTooManyRequests)
-				w.Write([]byte("Слишком много запросов. Остынь!"))
+			if !ok {
+				respond.Error(w, http.StatusTooManyRequests, "too many requests, slow down")
 				return
 			}
 
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func realIP(r *http.Request) string {
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		return ip
+	}
+	return r.RemoteAddr
 }

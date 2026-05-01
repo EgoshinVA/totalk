@@ -16,18 +16,18 @@ const (
 )
 
 type Task struct {
-	ID            int64  `gorm:"primaryKey"`
-	UserID        int64  `gorm:"index;not null"`
-	Title         string `gorm:"not null"`
-	Description   string
-	RawText       string
-	ScheduledAt   *time.Time     `gorm:"index:idx_status_scheduled,priority:2"` // время напоминания/планирования
-	IsRecurring   bool           `gorm:"default:false"`
-	RecurringRule string         // например "daily", "weekly", "monthly" или cron-строка
-	RecurringEnd  *time.Time     // дата окончания повторений (если nil — бесконечно)
-	Status        TaskStatus     `gorm:"default:'pending';index:idx_status_scheduled,priority:1"`
-	CompletedAt   *time.Time     // когда задача реально выполнена
-	CreatedAt     time.Time      `gorm:"autoCreateTime"`
-	UpdatedAt     time.Time      `gorm:"autoUpdateTime"`
-	DeletedAt     gorm.DeletedAt `gorm:"index"` // мягкое удаление
+	ID            int64          `gorm:"primaryKey" json:"id"`
+	UserID        int64          `gorm:"index;not null" json:"userId"`
+	Title         string         `gorm:"not null" json:"title"`
+	Description   string         `json:"description"`
+	RawText       string         `json:"rawText"`
+	ScheduledAt   *time.Time     `json:"scheduledAt"`
+	IsRecurring   bool           `gorm:"default:false" json:"isRecurring"`
+	RecurringRule string         `json:"recurringRule"`
+	RecurringEnd  *time.Time     `json:"recurringEnd"`
+	Status        TaskStatus     `gorm:"default:'pending'" json:"status"`
+	CompletedAt   *time.Time     `json:"completedAt"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 }
