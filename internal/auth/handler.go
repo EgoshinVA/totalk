@@ -88,7 +88,16 @@ func mapDomainError(err error) (int, string) {
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
-// POST /auth/register/step1
+// @Summary      Register step 1
+// @Description  Email + password, returns registration token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body body registerStep1Request true "Email and password"
+// @Success      201  {object}  map[string]string
+// @Failure      400  {object}  respond.ErrorResponse
+// @Failure      409  {object}  respond.ErrorResponse
+// @Router       /auth/register/step1 [post]
 func (h *Handler) RegisterStep1(w http.ResponseWriter, r *http.Request) {
 	req, ok := decode[registerStep1Request](r, w)
 	if !ok {
@@ -106,7 +115,15 @@ func (h *Handler) RegisterStep1(w http.ResponseWriter, r *http.Request) {
 	respond.Created(w, map[string]string{"registrationToken": token})
 }
 
-// POST /auth/register/step2
+// @Summary      Register step 2
+// @Description  Name and surname, returns status
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body body registerStep2Request true "Profile info"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  respond.ErrorResponse
+// @Router       /auth/register/step2 [post]
 func (h *Handler) RegisterStep2(w http.ResponseWriter, r *http.Request) {
 	req, ok := decode[registerStep2Request](r, w)
 	if !ok {
@@ -127,7 +144,15 @@ func (h *Handler) RegisterStep2(w http.ResponseWriter, r *http.Request) {
 	respond.OK(w, map[string]string{"status": "profile updated"})
 }
 
-// POST /auth/register/step3  (finalize)
+// @Summary      Register step 3
+// @Description  Avatar URL, finalizes registration and returns tokens + user
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body body registerStep3Request true "Avatar URL"
+// @Success      201  {object}  domain.AuthResponse
+// @Failure      400  {object}  respond.ErrorResponse
+// @Router       /auth/register/step3 [post]
 func (h *Handler) RegisterStep3(w http.ResponseWriter, r *http.Request) {
 	req, ok := decode[registerStep3Request](r, w)
 	if !ok {
@@ -144,7 +169,15 @@ func (h *Handler) RegisterStep3(w http.ResponseWriter, r *http.Request) {
 	respond.Created(w, authResp)
 }
 
-// POST /auth/login
+// @Summary      Login
+// @Description  Returns access + refresh tokens and user
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body body loginRequest true "Credentials"
+// @Success      200  {object}  domain.AuthResponse
+// @Failure      401  {object}  respond.ErrorResponse
+// @Router       /auth/login [post]
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	req, ok := decode[loginRequest](r, w)
 	if !ok {
@@ -162,7 +195,15 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	respond.OK(w, authResp)
 }
 
-// POST /auth/refresh
+// @Summary      Refresh tokens
+// @Description  Returns new token pair
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body body refreshRequest true "Refresh token"
+// @Success      200  {object}  domain.TokenPair
+// @Failure      401  {object}  respond.ErrorResponse
+// @Router       /auth/refresh [post]
 func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	req, ok := decode[refreshRequest](r, w)
 	if !ok {
@@ -179,7 +220,13 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	respond.OK(w, pair)
 }
 
-// GET /auth/me  (protected)
+// @Summary      Get current user
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  domain.UserResponse
+// @Failure      401  {object}  respond.ErrorResponse
+// @Router       /auth/me [get]
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.UserIDFromCtx(r.Context())
 
@@ -193,7 +240,12 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	respond.OK(w, domain.UserFromModel(user))
 }
 
-// POST /auth/logout  (protected)
+// @Summary      Logout
+// @Tags         auth
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]string
+// @Failure      500  {object}  respond.ErrorResponse
+// @Router       /auth/logout [post]
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.UserIDFromCtx(r.Context())
 
@@ -203,4 +255,50 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respond.OK(w, map[string]string{"status": "logged out"})
+}
+
+// @Summary      Update current user
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body body updateMeRequest true "Fields to update"
+// @Success      200  {object}  domain.UserResponse
+// @Failure      400  {object}  respond.ErrorResponse
+// @Router       /auth/me [patch]
+func (h *Handler) UpdateMe(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromCtx(r.Context())
+
+	var body struct {
+		Name       *string `json:"name"`
+		SurName    *string `json:"surName"`
+		Patronymic *string `json:"patronymic"`
+		AvatarURL  *string `json:"avatarUrl"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		respond.Error(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+
+	user, err := h.svc.UpdateProfile(r.Context(), userID, UpdateProfileInput{
+		Name:       body.Name,
+		SurName:    body.SurName,
+		Patronymic: body.Patronymic,
+		AvatarURL:  body.AvatarURL,
+	})
+	if err != nil {
+		code, msg := mapDomainError(err)
+		respond.Error(w, code, msg)
+		return
+	}
+
+	respond.OK(w, user)
+}
+
+// Для сваггера
+type updateMeRequest struct {
+	Name       *string `json:"name"`
+	SurName    *string `json:"surName"`
+	Patronymic *string `json:"patronymic"`
+	AvatarURL  *string `json:"avatarUrl"`
 }

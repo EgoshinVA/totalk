@@ -20,8 +20,20 @@ import (
 	"totalk/internal/platform/config"
 	"totalk/internal/platform/database"
 	"totalk/pkg/jwt"
+
+	_ "totalk/docs"
+
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
+// @title ToTalk API
+// @version 1.0
+// @description Voice-to-task API
+// @host localhost:8080
+// @BasePath /api/v1
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	cfg := config.Load()
 
@@ -88,6 +100,10 @@ func main() {
 		tasks.RegisterRoutes(r, taskHandler, tm)
 		r.HandleFunc("/ws/audio", voiceHandler.HandleWS)
 	})
+
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8080/swagger/doc.json"),
+	))
 
 	// ── Server ───────────────────────────────────────────────────────────────
 

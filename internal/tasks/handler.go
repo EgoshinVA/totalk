@@ -23,6 +23,14 @@ func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
 
+// @Summary      List tasks
+// @Tags         tasks
+// @Produce      json
+// @Security     BearerAuth
+// @Param        status query string false "Filter by status: pending, done, canceled"
+// @Success      200  {array}   domain.Task
+// @Failure      401  {object}  respond.ErrorResponse
+// @Router       /tasks/ [get]
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.UserIDFromCtx(r.Context())
 	fmt.Printf("📋 List tasks for userID: %d\n", userID)
@@ -38,6 +46,14 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	respond.OK(w, tasks)
 }
 
+// @Summary      Complete task
+// @Tags         tasks
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path int true "Task ID"
+// @Success      200  {object}  domain.Task
+// @Failure      404  {object}  respond.ErrorResponse
+// @Router       /tasks/{id}/complete [patch]
 func (h *Handler) Complete(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.UserIDFromCtx(r.Context())
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -57,6 +73,16 @@ func (h *Handler) Complete(w http.ResponseWriter, r *http.Request) {
 	respond.OK(w, task)
 }
 
+// @Summary      Update task
+// @Tags         tasks
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path int true "Task ID"
+// @Param        body body updateTaskRequest true "Fields to update"
+// @Success      200  {object}  domain.Task
+// @Failure      404  {object}  respond.ErrorResponse
+// @Router       /tasks/{id} [patch]
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.UserIDFromCtx(r.Context())
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -93,6 +119,14 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	respond.OK(w, task)
 }
 
+// @Summary      Delete task
+// @Tags         tasks
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path int true "Task ID"
+// @Success      200  {object}  map[string]string
+// @Failure      404  {object}  respond.ErrorResponse
+// @Router       /tasks/{id} [delete]
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.UserIDFromCtx(r.Context())
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -119,4 +153,12 @@ func RegisterRoutes(r chi.Router, h *Handler, tm *jwt.TokenManager) {
 		r.Patch("/{id}", h.Update)
 		r.Delete("/{id}", h.Delete)
 	})
+}
+
+// Для сваггера
+type updateTaskRequest struct {
+	Title       *string            `json:"title"`
+	Description *string            `json:"description"`
+	ScheduledAt *time.Time         `json:"scheduledAt"`
+	Status      *domain.TaskStatus `json:"status"`
 }

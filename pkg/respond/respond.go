@@ -5,6 +5,11 @@ import (
 	"net/http"
 )
 
+// ErrorResponse — структура ошибки для swagger документации
+type ErrorResponse struct {
+	Message string `json:"message"`
+}
+
 // JSON пишет произвольный объект как JSON с нужным статусом.
 func JSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

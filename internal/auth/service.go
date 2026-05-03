@@ -147,6 +147,43 @@ func (s *Service) Login(ctx context.Context, email, password string) (*domain.Au
 	return s.issueAuth(ctx, user.ID)
 }
 
+// ── Update profile ────────────────────────────────────────────────────────────────────────
+
+type UpdateProfileInput struct {
+	Name       *string
+	SurName    *string
+	Patronymic *string
+	AvatarURL  *string
+}
+
+func (s *Service) UpdateProfile(ctx context.Context, userID int64, input UpdateProfileInput) (domain.UserResponse, error) {
+	fields := map[string]any{}
+	if input.Name != nil {
+		fields["name"] = *input.Name
+	}
+	if input.SurName != nil {
+		fields["sur_name"] = *input.SurName
+	}
+	if input.Patronymic != nil {
+		fields["patronymic"] = *input.Patronymic
+	}
+	if input.AvatarURL != nil {
+		fields["avatar_url"] = *input.AvatarURL
+	}
+
+	if len(fields) > 0 {
+		if err := s.users.UpdateProfile(ctx, userID, fields); err != nil {
+			return domain.UserResponse{}, err
+		}
+	}
+
+	user, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return domain.UserResponse{}, err
+	}
+	return domain.UserFromModel(user), nil
+}
+
 // ── Me ────────────────────────────────────────────────────────────────────────
 
 func (s *Service) Me(ctx context.Context, userID int64) (*domain.User, error) {

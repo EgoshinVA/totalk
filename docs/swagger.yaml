@@ -1,34 +1,470 @@
+basePath: /api/v1
 definitions:
-  auth.registerRequest:
+  auth.loginRequest:
     properties:
       email:
         type: string
       password:
         type: string
+    required:
+    - email
+    - password
     type: object
+  auth.refreshRequest:
+    properties:
+      refreshToken:
+        type: string
+    required:
+    - refreshToken
+    type: object
+  auth.registerStep1Request:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  auth.registerStep2Request:
+    properties:
+      name:
+        type: string
+      patronymic:
+        type: string
+      registrationToken:
+        type: string
+      surName:
+        type: string
+    required:
+    - name
+    - registrationToken
+    - surName
+    type: object
+  auth.registerStep3Request:
+    properties:
+      avatarUrl:
+        type: string
+      registrationToken:
+        type: string
+    required:
+    - registrationToken
+    type: object
+  auth.updateMeRequest:
+    properties:
+      avatarUrl:
+        type: string
+      name:
+        type: string
+      patronymic:
+        type: string
+      surName:
+        type: string
+    type: object
+  domain.AuthResponse:
+    properties:
+      accessToken:
+        type: string
+      refreshToken:
+        type: string
+      user:
+        $ref: '#/definitions/domain.UserResponse'
+    type: object
+  domain.Task:
+    properties:
+      completedAt:
+        type: string
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      isRecurring:
+        type: boolean
+      rawText:
+        type: string
+      recurringEnd:
+        type: string
+      recurringRule:
+        type: string
+      scheduledAt:
+        type: string
+      status:
+        $ref: '#/definitions/domain.TaskStatus'
+      title:
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: integer
+    type: object
+  domain.TaskStatus:
+    enum:
+    - pending
+    - done
+    - canceled
+    type: string
+    x-enum-varnames:
+    - TaskStatusPending
+    - TaskStatusDone
+    - TaskStatusCanceled
+  domain.TokenPair:
+    properties:
+      accessToken:
+        type: string
+      refreshToken:
+        type: string
+    type: object
+  domain.UserResponse:
+    properties:
+      avatarUrl:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      patronymic:
+        type: string
+      surName:
+        type: string
+    type: object
+  respond.ErrorResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  tasks.updateTaskRequest:
+    properties:
+      description:
+        type: string
+      scheduledAt:
+        type: string
+      status:
+        $ref: '#/definitions/domain.TaskStatus'
+      title:
+        type: string
+    type: object
+host: localhost:8080
 info:
   contact: {}
+  description: Voice-to-task API
+  title: ToTalk API
+  version: "1.0"
 paths:
-  /auth/register:
+  /auth/login:
     post:
       consumes:
       - application/json
-      description: Create a new account with email and password
+      description: Returns access + refresh tokens and user
       parameters:
-      - description: User Credentials
+      - description: Credentials
         in: body
-        name: input
+        name: body
         required: true
         schema:
-          $ref: '#/definitions/auth.registerRequest'
+          $ref: '#/definitions/auth.loginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.AuthResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Login
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout
+      tags:
+      - auth
+  /auth/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.UserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - auth
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/auth.updateMeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update current user
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Returns new token pair
+      parameters:
+      - description: Refresh token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/auth.refreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.TokenPair'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Refresh tokens
+      tags:
+      - auth
+  /auth/register/step1:
+    post:
+      consumes:
+      - application/json
+      description: Email + password, returns registration token
+      parameters:
+      - description: Email and password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/auth.registerStep1Request'
       produces:
       - application/json
       responses:
         "201":
-          description: User registered successfully
+          description: Created
           schema:
-            type: string
-      summary: Register a new user
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Register step 1
       tags:
       - auth
+  /auth/register/step2:
+    post:
+      consumes:
+      - application/json
+      description: Name and surname, returns status
+      parameters:
+      - description: Profile info
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/auth.registerStep2Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Register step 2
+      tags:
+      - auth
+  /auth/register/step3:
+    post:
+      consumes:
+      - application/json
+      description: Avatar URL, finalizes registration and returns tokens + user
+      parameters:
+      - description: Avatar URL
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/auth.registerStep3Request'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Register step 3
+      tags:
+      - auth
+  /tasks/:
+    get:
+      parameters:
+      - description: 'Filter by status: pending, done, canceled'
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Task'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List tasks
+      tags:
+      - tasks
+  /tasks/{id}:
+    delete:
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete task
+      tags:
+      - tasks
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/tasks.updateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Task'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update task
+      tags:
+      - tasks
+  /tasks/{id}/complete:
+    patch:
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Task'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Complete task
+      tags:
+      - tasks
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

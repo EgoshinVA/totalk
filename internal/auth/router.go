@@ -20,6 +20,7 @@ func RegisterRoutes(r chi.Router, h *Handler, tm *jwt.TokenManager) {
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(tm))
 			r.Get("/me", h.Me)
+			r.Patch("/me", h.UpdateMe)
 			r.Post("/logout", h.Logout)
 		})
 	})
