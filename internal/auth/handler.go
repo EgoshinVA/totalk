@@ -15,8 +15,6 @@ import (
 
 var validate = validator.New()
 
-// ── Request structs ───────────────────────────────────────────────────────────
-
 type registerStep1Request struct {
 	Email    string `json:"email"    validate:"required,email"`
 	Password string `json:"password" validate:"required,min=8"`
@@ -43,8 +41,6 @@ type refreshRequest struct {
 	RefreshToken string `json:"refreshToken" validate:"required"`
 }
 
-// ── Handler ───────────────────────────────────────────────────────────────────
-
 type Handler struct {
 	svc *Service
 }
@@ -52,8 +48,6 @@ type Handler struct {
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 func decode[T any](r *http.Request, w http.ResponseWriter) (T, bool) {
 	var v T
@@ -85,8 +79,6 @@ func mapDomainError(err error) (int, string) {
 		return http.StatusInternalServerError, "internal server error"
 	}
 }
-
-// ── Handlers ──────────────────────────────────────────────────────────────────
 
 // @Summary      Register step 1
 // @Description  Email + password, returns registration token

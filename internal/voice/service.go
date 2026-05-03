@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -25,6 +26,17 @@ type TaskExtraction struct {
 	IsRecurring bool   `json:"isRecurring"`
 }
 
+func whisperBin() string {
+	if runtime.GOOS == "windows" {
+		return "bin/whisper-cli.exe"
+	}
+	return "bin/whisper-cli"
+}
+
+func modelPath() string {
+	return "bin/ggml-small.bin"
+}
+
 func (s *AIService) Transcribe(audioData []byte) (string, error) {
 	tempFile := "input_temp.wav"
 	wavData := addWavHeader(audioData, 16000)
@@ -35,9 +47,8 @@ func (s *AIService) Transcribe(audioData []byte) (string, error) {
 
 	defer os.Remove(tempFile)
 
-	// Используем полные или чистые относительные пути
-	cmd := exec.Command("bin/whisper-cli.exe",
-		"-m", "bin/ggml-small.bin",
+	cmd := exec.Command(whisperBin(),
+		"-m", modelPath(),
 		"-f", tempFile,
 		"-nt",
 		"-l", "ru",
@@ -46,10 +57,9 @@ func (s *AIService) Transcribe(audioData []byte) (string, error) {
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out
-	cmd.Stderr = &stderr // Это критично!
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		// Если упало, выводим что именно сказал Whisper перед смертью
 		fmt.Printf("Whisper Error: %s\n", stderr.String())
 		return "", fmt.Errorf("whisper error: %v, details: %s", err, stderr.String())
 	}
@@ -70,9 +80,9 @@ func addWavHeader(pcmData []byte, sampleRate int) []byte {
 
 	copy(header[8:12], "WAVE")
 	copy(header[12:16], "fmt ")
-	header[16] = 16 // Subchunk1Size
-	header[20] = 1  // PCM format
-	header[22] = 1  // Mono
+	header[16] = 16
+	header[20] = 1
+	header[22] = 1
 
 	header[24] = byte(sampleRate)
 	header[25] = byte(sampleRate >> 8)
@@ -85,8 +95,8 @@ func addWavHeader(pcmData []byte, sampleRate int) []byte {
 	header[30] = byte(byteRate >> 16)
 	header[31] = byte(byteRate >> 24)
 
-	header[32] = 2  // BlockAlign
-	header[34] = 16 // BitsPerSample
+	header[32] = 2
+	header[34] = 16
 	copy(header[36:40], "data")
 	header[40] = byte(dataLen)
 	header[41] = byte(dataLen >> 8)
@@ -96,8 +106,24 @@ func addWavHeader(pcmData []byte, sampleRate int) []byte {
 	return append(header, pcmData...)
 }
 
+func ollamaURL() string {
+	if url := os.Getenv("LLM_URL"); url != "" {
+		return url
+	}
+	// Внутри Docker используем имя сервиса
+	return "http://ollama:11434/v1/chat/completions"
+}
+
+func ollamaModel() string {
+	if model := os.Getenv("LLM_MODEL"); model != "" {
+		return model
+	}
+	return "qwen2.5:3b"
+}
+
 func (s *AIService) ExtractTask(rawText string) (*TaskExtraction, error) {
-	url := "http://localhost:1234/v1/chat/completions"
+	url := ollamaURL()
+	model := ollamaModel()
 
 	nowDate := time.Now().Format("2006-01-02")
 	nowTime := time.Now().Format("15:04")
@@ -108,7 +134,9 @@ func (s *AIService) ExtractTask(rawText string) (*TaskExtraction, error) {
 		nowDate, nowDay, nowTime, rawText,
 	)
 
+	// Добавляем обязательное поле "model"
 	requestBody := map[string]interface{}{
+		"model": model, // ВАЖНО: указываем модель
 		"messages": []map[string]string{
 			{
 				"role": "system",
@@ -126,14 +154,29 @@ func (s *AIService) ExtractTask(rawText string) (*TaskExtraction, error) {
 			{"role": "user", "content": prompt},
 		},
 		"temperature": 0.0,
+		"stream":      false, // Отключаем streaming для простоты
 	}
 
-	jsonData, _ := json.Marshal(requestBody)
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	fmt.Printf("🔍 Sending to Ollama (%s): %s\n", model, string(jsonData))
+
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to LM Studio: %v", err)
+		return nil, fmt.Errorf("failed to connect to Ollama: %v", err)
 	}
 	defer resp.Body.Close()
+
+	fmt.Printf("📡 Response status: %d\n", resp.StatusCode)
+
+	// Читаем тело ответа для отладки
+	var buf bytes.Buffer
+	buf.ReadFrom(resp.Body)
+	responseBody := buf.String()
+	fmt.Printf("📄 Response body: %s\n", responseBody)
 
 	var apiResponse struct {
 		Choices []struct {
@@ -143,12 +186,12 @@ func (s *AIService) ExtractTask(rawText string) (*TaskExtraction, error) {
 		} `json:"choices"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
-		return nil, fmt.Errorf("failed to decode AI response: %v", err)
+	if err := json.Unmarshal([]byte(responseBody), &apiResponse); err != nil {
+		return nil, fmt.Errorf("failed to decode AI response: %v, body: %s", err, responseBody)
 	}
 
 	if len(apiResponse.Choices) == 0 {
-		return nil, fmt.Errorf("AI returned empty result")
+		return nil, fmt.Errorf("AI returned empty result. Response: %s", responseBody)
 	}
 
 	content := apiResponse.Choices[0].Message.Content

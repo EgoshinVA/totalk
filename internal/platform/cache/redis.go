@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"totalk/internal/domain"
+
+	"github.com/redis/go-redis/v9"
 )
 
 // RedisStore реализует TokenRepository, RegistrationTokenRepository и RateLimiterStore.
@@ -21,7 +22,7 @@ func NewRedisStore(client *redis.Client) *RedisStore {
 
 func Init(ctx context.Context) (*redis.Client, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: "redis:6379",
 	})
 
 	// Проверяем соединение
